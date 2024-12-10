@@ -6,7 +6,7 @@
  
 +static const struct dmi_system_id inverted_screen[] = {
 +	{	/* TrekStor SurfTab duo W3 */
-+        	.ident = "TrekStor SurfTab duo W3",
++		.ident = "TrekStor SurfTab duo W3",
 +		.matches = {
 +		  DMI_MATCH(DMI_SYS_VENDOR, "TrekStor"),
 +		  DMI_MATCH(DMI_PRODUCT_NAME, "SurfTab duo W3"),
