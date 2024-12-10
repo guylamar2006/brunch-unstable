@@ -4,7 +4,7 @@
  		if (ke->type == KE_KEY)
  			return;
  	}
-+	
++
 +	switch(event) {
 +		case 0xc0: case 0xc2: case 0xc4: case 0xc6: case 0xc8: case 0xce:
 +			ke = sparse_keymap_entry_from_scancode(

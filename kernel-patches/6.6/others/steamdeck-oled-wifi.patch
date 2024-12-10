@@ -78,7 +78,7 @@ index fc7c4564a715..6a23a749f5e6 100644
 +		.fixed_fw_mem = false,
 +		.support_off_channel_tx = true,
 +		.supports_multi_bssid = true,
-+		
++
 +		.sram_dump = {
 +                    .start = 0x01400000,
 +		    .end = 0x0177ffff,
@@ -126,7 +126,7 @@ index 09e65c5e55c4..cf1bae60a8c9 100644
  
 +#define QCA206X_PCIC_SUB_VERSION 0x1910010 /* As far as I know, this is a magic number.
 +			                    * I got it from linux-neptune on the Steam Deck.*/
-+			      
++
  static const struct pci_device_id ath11k_pci_id_table[] = {
  	{ PCI_VDEVICE(QCOM, QCA6390_DEVICE_ID) },
  	{ PCI_VDEVICE(QCOM, WCN6855_DEVICE_ID) },
@@ -184,8 +184,8 @@ index 09e65c5e55c4..cf1bae60a8c9 100644
 +	if (ops_initialized == 0) {
 +	    ret = ath11k_pcic_register_pci_ops(ab, pci_ops);
 +	    if (ret) {
-+   		    ath11k_err(ab, "failed to register PCI ops: %d\n", ret);
-+	  	    goto err_pci_free_region;
++		    ath11k_err(ab, "failed to register PCI ops: %d\n", ret);
++		    goto err_pci_free_region;
 +	    }
  	}
  
