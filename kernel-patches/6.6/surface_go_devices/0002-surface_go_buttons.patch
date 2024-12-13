@@ -49,8 +49,8 @@ index 3201a83..2617684 100644
  		}
  	}
  
-+	if (priv->array) {
-+		switch(event) {
++		if (priv->array) {
++			switch (event) {
 +			case 0xc2: case 0xc4: case 0xc6: case 0xc8: case 0xce:
 +				key = sparse_keymap_entry_from_scancode(
 +					priv->array, event);
