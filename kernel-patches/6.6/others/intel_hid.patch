@@ -1,7 +1,7 @@
 --- a/drivers/platform/x86/intel/hid.c	2023-09-14 20:52:07.592853829 +0200
 +++ b/drivers/platform/x86/intel/hid.c	2023-09-14 23:21:54.173639591 +0200
 @@ -60,6 +60,27 @@
- 
+
  static const struct dmi_system_id button_array_table[] = {
  	{
 +		.ident = "HP ProBook x360 11 G5 EE",
@@ -44,7 +44,7 @@
 @@ -680,14 +686,6 @@
  		return err;
  	}
- 
+
 -	/* Setup 5 button array */
 -	if (button_array_present(device)) {
 -		dev_info(&device->dev, "platform supports 5 button array\n");
@@ -59,7 +59,7 @@
 @@ -698,6 +696,14 @@
  			report_tablet_mode_state(device);
  	}
- 
+
 +	/* Setup 5 button array */
 +	if (button_array_present(device)) {
 +		dev_info(&device->dev, "platform supports 5 button array\n");

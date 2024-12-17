@@ -29,13 +29,13 @@ index 15e9bd180a1d2..0d70461d01e16 100644
 @@ -220,6 +220,9 @@ static const struct usb_device_id usb_quirk_list[] = {
  	/* Microsoft Surface Dock Ethernet (RTL8153 GigE) */
  	{ USB_DEVICE(0x045e, 0x07c6), .driver_info = USB_QUIRK_NO_LPM },
- 
+
 +	/* Microsoft Surface Go 3 Type-Cover */
 +	{ USB_DEVICE(0x045e, 0x09b5), .driver_info = USB_QUIRK_DELAY_INIT },
 +
  	/* Cherry Stream G230 2.0 (G85-231) and 3.0 (G85-232) */
  	{ USB_DEVICE(0x046a, 0x0023), .driver_info = USB_QUIRK_RESET_RESUME },
- 
+
 -- 
 2.43.0
 
@@ -91,10 +91,10 @@ index 5ec1f174127a3..a7a12b56f79cb 100644
  #include <linux/string.h>
 @@ -47,6 +50,7 @@ MODULE_DESCRIPTION("HID multitouch panels");
  MODULE_LICENSE("GPL");
- 
+
  #include "hid-ids.h"
 +#include "usbhid/usbhid.h"
- 
+
  /* quirks to control the device */
  #define MT_QUIRK_NOT_SEEN_MEANS_UP	BIT(0)
 @@ -72,12 +76,15 @@ MODULE_LICENSE("GPL");
@@ -102,32 +102,32 @@ index 5ec1f174127a3..a7a12b56f79cb 100644
  #define MT_QUIRK_DISABLE_WAKEUP		BIT(21)
  #define MT_QUIRK_ORIENTATION_INVERT	BIT(22)
 +#define MT_QUIRK_HAS_TYPE_COVER_BACKLIGHT	BIT(23)
- 
+
  #define MT_INPUTMODE_TOUCHSCREEN	0x02
  #define MT_INPUTMODE_TOUCHPAD		0x03
- 
+
  #define MT_BUTTONTYPE_CLICKPAD		0
- 
+
 +#define MS_TYPE_COVER_FEATURE_REPORT_USAGE	0xff050086
 +
  enum latency_mode {
  	HID_LATENCY_NORMAL = 0,
  	HID_LATENCY_HIGH = 1,
 @@ -169,6 +176,8 @@ struct mt_device {
- 
+
  	struct list_head applications;
  	struct list_head reports;
 +
 +	struct notifier_block pm_notifier;
  };
- 
+
  static void mt_post_parse_default_settings(struct mt_device *td,
 @@ -213,6 +222,7 @@ static void mt_post_parse(struct mt_device *td, struct mt_application *app);
  #define MT_CLS_GOOGLE				0x0111
  #define MT_CLS_RAZER_BLADE_STEALTH		0x0112
  #define MT_CLS_SMART_TECH			0x0113
 +#define MT_CLS_WIN_8_MS_SURFACE_TYPE_COVER	0x0114
- 
+
  #define MT_DEFAULT_MAXCONTACT	10
  #define MT_MAX_MAXCONTACT	250
 @@ -397,6 +407,16 @@ static const struct mt_class mt_classes[] = {
@@ -146,11 +146,11 @@ index 5ec1f174127a3..a7a12b56f79cb 100644
 +	},
  	{ }
  };
- 
+
 @@ -1721,6 +1741,69 @@ static void mt_expired_timeout(struct timer_list *t)
  	clear_bit_unlock(MT_IO_FLAGS_RUNNING, &td->mt_io_flags);
  }
- 
+
 +static void get_type_cover_backlight_field(struct hid_device *hdev,
 +					   struct hid_field **field)
 +{
@@ -220,47 +220,47 @@ index 5ec1f174127a3..a7a12b56f79cb 100644
 @@ -1744,6 +1827,9 @@ static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
  	td->inputmode_value = MT_INPUTMODE_TOUCHSCREEN;
  	hid_set_drvdata(hdev, td);
- 
+
 +	td->pm_notifier.notifier_call = mt_pm_notifier;
 +	register_pm_notifier(&td->pm_notifier);
 +
  	INIT_LIST_HEAD(&td->applications);
  	INIT_LIST_HEAD(&td->reports);
- 
+
 @@ -1782,15 +1868,19 @@ static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
  	timer_setup(&td->release_timer, mt_expired_timeout, 0);
- 
+
  	ret = hid_parse(hdev);
 -	if (ret != 0)
 +	if (ret != 0) {
 +		unregister_pm_notifier(&td->pm_notifier);
  		return ret;
 +	}
- 
+
  	if (mtclass->quirks & MT_QUIRK_FIX_CONST_CONTACT_ID)
  		mt_fix_const_fields(hdev, HID_DG_CONTACTID);
- 
+
  	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT);
 -	if (ret)
 +	if (ret) {
 +		unregister_pm_notifier(&td->pm_notifier);
  		return ret;
 +	}
- 
+
  	ret = sysfs_create_group(&hdev->dev.kobj, &mt_attribute_group);
  	if (ret)
 @@ -1842,6 +1932,7 @@ static void mt_remove(struct hid_device *hdev)
  {
  	struct mt_device *td = hid_get_drvdata(hdev);
- 
+
 +	unregister_pm_notifier(&td->pm_notifier);
  	del_timer_sync(&td->release_timer);
- 
+
  	sysfs_remove_group(&hdev->dev.kobj, &mt_attribute_group);
 @@ -2228,6 +2319,11 @@ static const struct hid_device_id mt_devices[] = {
  		MT_USB_DEVICE(USB_VENDOR_ID_XIROKU,
  			USB_DEVICE_ID_XIROKU_CSR2) },
- 
+
 +	/* Microsoft Surface type cover */
 +	{ .driver_data = MT_CLS_WIN_8_MS_SURFACE_TYPE_COVER,
 +		HID_DEVICE(HID_BUS_ANY, HID_GROUP_ANY,
@@ -309,16 +309,16 @@ index a7a12b56f79cb..d4ac41f2f9a8a 100644
  #define MT_QUIRK_ORIENTATION_INVERT	BIT(22)
  #define MT_QUIRK_HAS_TYPE_COVER_BACKLIGHT	BIT(23)
 +#define MT_QUIRK_HAS_TYPE_COVER_TABLET_MODE_SWITCH	BIT(24)
- 
+
  #define MT_INPUTMODE_TOUCHSCREEN	0x02
  #define MT_INPUTMODE_TOUCHPAD		0x03
 @@ -84,6 +85,8 @@ MODULE_LICENSE("GPL");
  #define MT_BUTTONTYPE_CLICKPAD		0
- 
+
  #define MS_TYPE_COVER_FEATURE_REPORT_USAGE	0xff050086
 +#define MS_TYPE_COVER_TABLET_MODE_SWITCH_USAGE	0xff050072
 +#define MS_TYPE_COVER_APPLICATION	0xff050050
- 
+
  enum latency_mode {
  	HID_LATENCY_NORMAL = 0,
 @@ -409,6 +412,7 @@ static const struct mt_class mt_classes[] = {
@@ -342,7 +342,7 @@ index a7a12b56f79cb..d4ac41f2f9a8a 100644
 @@ -1417,6 +1424,21 @@ static int mt_input_mapping(struct hid_device *hdev, struct hid_input *hi,
  		return 1;
  	}
- 
+
 +	/*
 +	 * The Microsoft Surface Pro Typecover has a non-standard HID
 +	 * tablet mode switch on a vendor specific usage page with vendor
@@ -366,13 +366,13 @@ index a7a12b56f79cb..d4ac41f2f9a8a 100644
  	struct mt_device *td = hid_get_drvdata(hdev);
  	struct mt_report_data *rdata;
 +	struct input_dev *input;
- 
+
  	rdata = mt_find_report_data(td, field->report);
  	if (rdata && rdata->is_mt_collection) {
 @@ -1445,6 +1468,19 @@ static int mt_input_mapped(struct hid_device *hdev, struct hid_input *hi,
  		return -1;
  	}
- 
+
 +	/*
 +	 * We own an input device which acts as a tablet mode switch for
 +	 * the Surface Pro Typecover.
@@ -394,11 +394,11 @@ index a7a12b56f79cb..d4ac41f2f9a8a 100644
  	struct mt_device *td = hid_get_drvdata(hid);
  	struct mt_report_data *rdata;
 +	struct input_dev *input;
- 
+
  	rdata = mt_find_report_data(td, field->report);
  	if (rdata && rdata->is_mt_collection)
  		return mt_touch_event(hid, field, usage, value);
- 
+
 +	if (field->application == MS_TYPE_COVER_APPLICATION &&
 +	    rdata->application->quirks & MT_QUIRK_HAS_TYPE_COVER_TABLET_MODE_SWITCH &&
 +	    usage->hid == MS_TYPE_COVER_TABLET_MODE_SWITCH_USAGE) {
@@ -410,11 +410,11 @@ index a7a12b56f79cb..d4ac41f2f9a8a 100644
 +
  	return 0;
  }
- 
+
 @@ -1611,6 +1657,42 @@ static void mt_post_parse(struct mt_device *td, struct mt_application *app)
  		app->quirks &= ~MT_QUIRK_CONTACT_CNT_ACCURATE;
  }
- 
+
 +static int get_type_cover_field(struct hid_report_enum *rep_enum,
 +				struct hid_field **field, int usage)
 +{
@@ -471,7 +471,7 @@ index a7a12b56f79cb..d4ac41f2f9a8a 100644
 @@ -1741,30 +1830,6 @@ static void mt_expired_timeout(struct timer_list *t)
  	clear_bit_unlock(MT_IO_FLAGS_RUNNING, &td->mt_io_flags);
  }
- 
+
 -static void get_type_cover_backlight_field(struct hid_device *hdev,
 -					   struct hid_field **field)
 -{
@@ -502,7 +502,7 @@ index a7a12b56f79cb..d4ac41f2f9a8a 100644
 @@ -1773,8 +1838,9 @@ static void update_keyboard_backlight(struct hid_device *hdev, bool enabled)
  	/* Wake up the device in case it's already suspended */
  	pm_runtime_get_sync(&udev->dev);
- 
+
 -	get_type_cover_backlight_field(hdev, &field);
 -	if (!field) {
 +	if (!get_type_cover_field(&hdev->report_enum[HID_FEATURE_REPORT],
@@ -512,7 +512,7 @@ index a7a12b56f79cb..d4ac41f2f9a8a 100644
  		goto out;
  	}
 @@ -1909,13 +1975,24 @@ static int mt_suspend(struct hid_device *hdev, pm_message_t state)
- 
+
  static int mt_reset_resume(struct hid_device *hdev)
  {
 +	struct mt_device *td = hid_get_drvdata(hdev);
@@ -528,7 +528,7 @@ index a7a12b56f79cb..d4ac41f2f9a8a 100644
 +
  	return 0;
  }
- 
+
  static int mt_resume(struct hid_device *hdev)
  {
 +	struct mt_device *td = hid_get_drvdata(hdev);
@@ -537,9 +537,9 @@ index a7a12b56f79cb..d4ac41f2f9a8a 100644
  	 * It should be safe to send it to other devices too.
  	 * Tested on 3M, Stantum, Cypress, Zytronic, eGalax, and Elan panels. */
 @@ -1924,6 +2001,10 @@ static int mt_resume(struct hid_device *hdev)
- 
+
  	mt_set_modes(hdev, HID_LATENCY_NORMAL, true, true);
- 
+
 +	/* Request an update on the typecover folding state on resume. */
 +	if (td->mtclass.quirks & MT_QUIRK_HAS_TYPE_COVER_TABLET_MODE_SWITCH)
 +		request_type_cover_tablet_mode_switch(hdev);
@@ -566,7 +566,7 @@ index a7a12b56f79cb..d4ac41f2f9a8a 100644
 +			hid_err(hdev, "couldn't find tablet mode field\n");
 +		}
 +	}
- 
+
  	unregister_pm_notifier(&td->pm_notifier);
  	del_timer_sync(&td->release_timer);
 -- 

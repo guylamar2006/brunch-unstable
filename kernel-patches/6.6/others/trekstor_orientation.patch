@@ -1,9 +1,9 @@
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c	2020-04-20 19:28:13.000000000 +0200
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c	2020-05-21 19:00:15.891949179 +0200
 @@ -15,6 +15,17 @@
- 
+
  #ifdef CONFIG_DMI
- 
+
 +static const struct dmi_system_id inverted_screen[] = {
 +	{	/* TrekStor SurfTab duo W3 */
 +		.ident = "TrekStor SurfTab duo W3",
@@ -21,7 +21,7 @@
 @@ -212,6 +223,11 @@
  	const char *bios_date;
  	int i;
- 
+
 +	if (dmi_check_system(inverted_screen)) {
 +		pr_info("applying orientation quirk\n");
 +		return DRM_MODE_PANEL_ORIENTATION_BOTTOM_UP;

@@ -5,7 +5,7 @@ index 5b2506c65e95..d88ebdca1766 100644
 @@ -147,6 +147,18 @@ static const struct drm_dmi_panel_orientation_data lcd1600x2560_rightside_up = {
  	.orientation = DRM_MODE_PANEL_ORIENTATION_RIGHT_UP,
  };
- 
+
 +static const struct drm_dmi_panel_orientation_data lcd800x1280_bottom_up = {
 +	.width = 800,
 +	.height = 1280,
@@ -82,14 +82,14 @@ index 5b2506c65e95..d88ebdca1766 100644
 @@ -496,11 +552,15 @@ int drm_get_panel_orientation_quirk(int width, int height)
  	const char *bios_date;
  	int i;
- 
+
 +	pr_info("%s called with width=%d height=%d", __func__, width, height);
 +
  	for (match = dmi_first_match(orientation_data);
  	     match;
  	     match = dmi_first_match(match + 1)) {
  		data = match->driver_data;
- 
+
 +		pr_info("%s dmi match found", __func__);
 +
  		if (data->width != width ||
@@ -97,7 +97,7 @@ index 5b2506c65e95..d88ebdca1766 100644
  			continue;
 @@ -513,8 +573,10 @@ int drm_get_panel_orientation_quirk(int width, int height)
  			continue;
- 
+
  		i = match_string(data->bios_dates, -1, bios_date);
 -		if (i >= 0)
 +		if (i >= 0) {
@@ -105,5 +105,5 @@ index 5b2506c65e95..d88ebdca1766 100644
  			return data->orientation;
 +		}
  	}
- 
+
  	return DRM_MODE_PANEL_ORIENTATION_UNKNOWN;

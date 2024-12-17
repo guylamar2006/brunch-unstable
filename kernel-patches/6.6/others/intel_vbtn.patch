@@ -19,13 +19,13 @@
 +			input_sync(input_dev);
 +			return;
 +	}
- 
+
  	/*
  	 * Even press events are autorelease if there is no corresponding odd
 @@ -152,70 +148,24 @@
  	return ACPI_SUCCESS(status);
  }
- 
+
 -/*
 - * There are several laptops (non 2-in-1) models out there which support VGBS,
 - * but simply always return 0, which we translate to SW_TABLET_MODE=1. This in
@@ -85,11 +85,11 @@
 +	const char *chassis_type = dmi_get_system_info(DMI_CHASSIS_TYPE);
  	unsigned long long vgbs;
  	acpi_status status;
- 
+
  	/* See dual_accel_detect.h for more info */
  	if (dual_accel)
  		return false;
- 
+
 -	if (!dmi_check_system(dmi_switches_allow_list))
 +	/*
 +	 * Some normal laptops have a VGBS method despite being non-convertible
@@ -100,5 +100,5 @@
 +	 */
 +	if (chassis_type && strcmp(chassis_type, "9") == 0)
  		return false;
- 
+
  	status = acpi_evaluate_integer(handle, "VGBS", NULL, &vgbs);

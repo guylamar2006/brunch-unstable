@@ -3,7 +3,7 @@ index b110818fc945..b08a5ab58528 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -71,60 +71,222 @@ static LIST_HEAD(steam_devices);
- 
+
  /*
   * Commands that can be sent in a feature report.
 - * Thanks to Valve for some valuable hints.
@@ -219,7 +219,7 @@ index b110818fc945..b08a5ab58528 100644
 +	ATTRIB_STR_BOARD_SERIAL,
 +	ATTRIB_STR_UNIT_SERIAL,
 +};
- 
+
  /* Values for GYRO_MODE (bitmask) */
 -#define STEAM_GYRO_MODE_OFF		0x0000
 -#define STEAM_GYRO_MODE_STEERING	0x0001
@@ -253,11 +253,11 @@ index b110818fc945..b08a5ab58528 100644
 +#define STEAM_PAD_LEFT 0
 +#define STEAM_PAD_RIGHT 1
 +#define STEAM_PAD_BOTH 2
- 
+
  /* Other random constants */
 -#define STEAM_SERIAL_LEN 10
 +#define STEAM_SERIAL_LEN 0x15
- 
+
  struct steam_device {
  	struct list_head list;
  	spinlock_t lock;
@@ -283,7 +283,7 @@ index b110818fc945..b08a5ab58528 100644
 @@ -226,13 +390,13 @@ static inline int steam_send_report_byte(struct steam_device *steam, u8 cmd)
  	return steam_send_report(steam, &cmd, 1);
  }
- 
+
 -static int steam_write_registers(struct steam_device *steam,
 +static int steam_write_settings(struct steam_device *steam,
  		/* u8 reg, u16 val */...)
@@ -295,7 +295,7 @@ index b110818fc945..b08a5ab58528 100644
 +	u8 cmd[64] = {ID_SET_SETTINGS_VALUES, 0x00};
  	int ret;
  	va_list args;
- 
+
 @@ -265,23 +429,29 @@ static int steam_get_serial(struct steam_device *steam)
  {
  	/*
@@ -308,7 +308,7 @@ index b110818fc945..b08a5ab58528 100644
 +	int ret = 0;
 +	u8 cmd[] = {ID_GET_STRING_ATTRIBUTE, sizeof(steam->serial_no), ATTRIB_STR_UNIT_SERIAL};
  	u8 reply[3 + STEAM_SERIAL_LEN + 1];
- 
+
 +	mutex_lock(&steam->report_mutex);
  	ret = steam_send_report(steam, cmd, sizeof(cmd));
  	if (ret < 0)
@@ -333,7 +333,7 @@ index b110818fc945..b08a5ab58528 100644
 +	mutex_unlock(&steam->report_mutex);
 +	return ret;
  }
- 
+
  /*
 @@ -291,14 +461,50 @@ static int steam_get_serial(struct steam_device *steam)
   */
@@ -377,7 +377,7 @@ index b110818fc945..b08a5ab58528 100644
 +	mutex_unlock(&steam->report_mutex);
 +	return ret;
  }
- 
+
  static inline int steam_haptic_rumble(struct steam_device *steam,
  				u16 intensity, u16 left_speed, u16 right_speed,
  				u8 left_gain, u8 right_gain)
@@ -385,23 +385,23 @@ index b110818fc945..b08a5ab58528 100644
 -	u8 report[11] = {STEAM_CMD_HAPTIC_RUMBLE, 9};
 +	int ret;
 +	u8 report[11] = {ID_TRIGGER_RUMBLE_CMD, 9};
- 
+
  	report[3] = intensity & 0xFF;
  	report[4] = intensity >> 8;
 @@ -309,7 +515,10 @@ static inline int steam_haptic_rumble(struct steam_device *steam,
  	report[9] = left_gain;
  	report[10] = right_gain;
- 
+
 -	return steam_send_report(steam, report, sizeof(report));
 +	mutex_lock(&steam->report_mutex);
 +	ret = steam_send_report(steam, report, sizeof(report));
 +	mutex_unlock(&steam->report_mutex);
 +	return ret;
  }
- 
+
  static void steam_haptic_rumble_cb(struct work_struct *work)
 @@ -335,40 +544,36 @@ static int steam_play_effect(struct input_dev *dev, void *data,
- 
+
  static void steam_set_lizard_mode(struct steam_device *steam, bool enable)
  {
 +	if (steam->gamepad_mode)
@@ -427,7 +427,7 @@ index b110818fc945..b08a5ab58528 100644
  		/* disable esc, enter, cursor */
 -		steam_send_report_byte(steam, STEAM_CMD_CLEAR_MAPPINGS);
 +		steam_send_report_byte(steam, ID_CLEAR_DIGITAL_MAPPINGS);
- 
+
  		if (steam->quirks & STEAM_QUIRK_DECK) {
 -			steam_write_registers(steam,
 -				STEAM_REG_RPAD_MARGIN, 0x00, /* disable margin */
@@ -481,20 +481,20 @@ index b110818fc945..b08a5ab58528 100644
 +		if (set_lizard_mode)
 +			steam_set_lizard_mode(steam, false);
 +	}
- 
+
 -	mutex_lock(&steam->mutex);
 -	if (!steam->client_opened && lizard_mode)
 -		steam_set_lizard_mode(steam, false);
 -	mutex_unlock(&steam->mutex);
  	return 0;
  }
- 
+
  static void steam_input_close(struct input_dev *dev)
  {
  	struct steam_device *steam = input_get_drvdata(dev);
 +	unsigned long flags;
 +	bool set_lizard_mode;
- 
+
 -	mutex_lock(&steam->mutex);
 -	if (!steam->client_opened && lizard_mode)
 -		steam_set_lizard_mode(steam, true);
@@ -507,7 +507,7 @@ index b110818fc945..b08a5ab58528 100644
 +			steam_set_lizard_mode(steam, true);
 +	}
  }
- 
+
  static enum power_supply_property steam_battery_props[] = {
 @@ -635,7 +856,8 @@ static void steam_battery_unregister(struct steam_device *steam)
  static int steam_register(struct steam_device *steam)
@@ -516,7 +516,7 @@ index b110818fc945..b08a5ab58528 100644
 -	bool client_opened;
 +	unsigned long client_opened;
 +	unsigned long flags;
- 
+
  	/*
  	 * This function can be called several times in a row with the
 @@ -648,11 +870,9 @@ static int steam_register(struct steam_device *steam)
@@ -528,13 +528,13 @@ index b110818fc945..b08a5ab58528 100644
  			strscpy(steam->serial_no, "XXXXXXXXXX",
  					sizeof(steam->serial_no));
 -		mutex_unlock(&steam->mutex);
- 
+
  		hid_info(steam->hdev, "Steam Controller '%s' connected",
  				steam->serial_no);
 @@ -667,15 +887,13 @@ static int steam_register(struct steam_device *steam)
  		mutex_unlock(&steam_devices_lock);
  	}
- 
+
 -	mutex_lock(&steam->mutex);
 +	spin_lock_irqsave(&steam->lock, flags);
  	client_opened = steam->client_opened;
@@ -549,12 +549,12 @@ index b110818fc945..b08a5ab58528 100644
 -	else
 +	} else
  		ret = 0;
- 
+
  	return ret;
 @@ -719,6 +937,34 @@ static void steam_work_connect_cb(struct work_struct *work)
  	}
  }
- 
+
 +static void steam_mode_switch_cb(struct work_struct *work)
 +{
 +	struct steam_device *steam = container_of(to_delayed_work(work),
@@ -589,7 +589,7 @@ index b110818fc945..b08a5ab58528 100644
 @@ -738,22 +984,6 @@ static bool steam_is_valve_interface(struct hid_device *hdev)
  	return !list_empty(&rep_enum->report_list);
  }
- 
+
 -static void steam_lizard_mode_heartbeat(struct work_struct *work)
 -{
 -	struct steam_device *steam = container_of(work, struct steam_device,
@@ -614,25 +614,25 @@ index b110818fc945..b08a5ab58528 100644
  {
  	struct steam_device *steam = hdev->driver_data;
 +	unsigned long flags;
- 
+
 -	mutex_lock(&steam->mutex);
 -	steam->client_opened = true;
 -	mutex_unlock(&steam->mutex);
 +	spin_lock_irqsave(&steam->lock, flags);
 +	steam->client_opened++;
 +	spin_unlock_irqrestore(&steam->lock, flags);
- 
+
  	steam_input_unregister(steam);
- 
+
 @@ -792,17 +1023,14 @@ static void steam_client_ll_close(struct hid_device *hdev)
  	bool connected;
- 
+
  	spin_lock_irqsave(&steam->lock, flags);
 -	connected = steam->connected;
 +	steam->client_opened--;
 +	connected = steam->connected && !steam->client_opened;
  	spin_unlock_irqrestore(&steam->lock, flags);
- 
+
 -	mutex_lock(&steam->mutex);
 -	steam->client_opened = false;
 -	if (connected)
@@ -644,11 +644,11 @@ index b110818fc945..b08a5ab58528 100644
  		steam_input_register(steam);
 +	}
  }
- 
+
  static int steam_client_ll_raw_request(struct hid_device *hdev,
 @@ -881,45 +1109,33 @@ static int steam_probe(struct hid_device *hdev,
  		return hid_hw_start(hdev, HID_CONNECT_DEFAULT);
- 
+
  	steam = devm_kzalloc(&hdev->dev, sizeof(*steam), GFP_KERNEL);
 -	if (!steam) {
 -		ret = -ENOMEM;
@@ -668,7 +668,7 @@ index b110818fc945..b08a5ab58528 100644
  	INIT_LIST_HEAD(&steam->list);
 -	INIT_DEFERRABLE_WORK(&steam->heartbeat, steam_lizard_mode_heartbeat);
  	INIT_WORK(&steam->rumble_work, steam_haptic_rumble_cb);
- 
+
 -	steam->client_hdev = steam_create_client_hid(hdev);
 -	if (IS_ERR(steam->client_hdev)) {
 -		ret = PTR_ERR(steam->client_hdev);
@@ -688,7 +688,7 @@ index b110818fc945..b08a5ab58528 100644
 -	if (ret)
 -		goto client_hdev_add_fail;
 +		goto err_cancel_work;
- 
+
  	ret = hid_hw_open(hdev);
  	if (ret) {
  		hid_err(hdev,
@@ -697,7 +697,7 @@ index b110818fc945..b08a5ab58528 100644
 -		goto hid_hw_open_fail;
 +		goto err_hw_stop;
  	}
- 
+
  	if (steam->quirks & STEAM_QUIRK_WIRELESS) {
 @@ -935,25 +1151,37 @@ static int steam_probe(struct hid_device *hdev,
  			hid_err(hdev,
@@ -707,7 +707,7 @@ index b110818fc945..b08a5ab58528 100644
 +			goto err_hw_close;
  		}
  	}
- 
+
 +	steam->client_hdev = steam_create_client_hid(hdev);
 +	if (IS_ERR(steam->client_hdev)) {
 +		ret = PTR_ERR(steam->client_hdev);
@@ -720,7 +720,7 @@ index b110818fc945..b08a5ab58528 100644
 +		goto err_destroy;
 +
  	return 0;
- 
+
 -input_register_fail:
 -hid_hw_open_fail:
 -client_hdev_add_fail:
@@ -747,11 +747,11 @@ index b110818fc945..b08a5ab58528 100644
 +
  	return ret;
  }
- 
+
 @@ -966,13 +1194,11 @@ static void steam_remove(struct hid_device *hdev)
  		return;
  	}
- 
+
 +	cancel_delayed_work_sync(&steam->mode_switch);
 +	cancel_work_sync(&steam->work_connect);
  	hid_destroy_device(steam->client_hdev);
@@ -768,7 +768,7 @@ index b110818fc945..b08a5ab58528 100644
 @@ -1254,6 +1480,17 @@ static void steam_do_deck_input_event(struct steam_device *steam,
  	b13 = data[13];
  	b14 = data[14];
- 
+
 +	if (!(b9 & BIT(6)) && steam->did_mode_switch) {
 +		steam->did_mode_switch = false;
 +		cancel_delayed_work_sync(&steam->mode_switch);
@@ -782,10 +782,10 @@ index b110818fc945..b08a5ab58528 100644
 +
  	lpad_touched = b10 & BIT(3);
  	rpad_touched = b10 & BIT(4);
- 
+
 @@ -1375,7 +1612,7 @@ static int steam_raw_event(struct hid_device *hdev,
  		return 0;
- 
+
  	switch (data[2]) {
 -	case STEAM_EV_INPUT_DATA:
 +	case ID_CONTROLLER_STATE:
@@ -820,7 +820,7 @@ index b110818fc945..b08a5ab58528 100644
  			rcu_read_lock();
  			battery = rcu_dereference(steam->battery);
 @@ -1439,10 +1676,8 @@ static int steam_param_set_lizard_mode(const char *val,
- 
+
  	mutex_lock(&steam_devices_lock);
  	list_for_each_entry(steam, &steam_devices, list) {
 -		mutex_lock(&steam->mutex);

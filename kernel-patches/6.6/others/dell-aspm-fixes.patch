@@ -13,7 +13,7 @@ index 57afcb2a7e00..71d5ea2929e1 100644
 @@ -5248,11 +5249,87 @@ static void rtl_init_mac_address(struct rtl8169_private *tp)
  	rtl_rar_set(tp, mac_addr);
  }
- 
+
 +static bool rtl_aspm_dell_workaround(struct rtl8169_private *tp)
 +{
 +	static const struct dmi_system_id sysids[] = {
@@ -97,7 +97,7 @@ index 57afcb2a7e00..71d5ea2929e1 100644
 +		r8168_mac_ocp_read(tp, 0xc0b2) & 0xf ||
 +		rtl_aspm_dell_workaround(tp))
  		return true;
- 
+
  	return false;
 diff --git a/drivers/net/ethernet/realtek/r8169_main.c b/drivers/net/ethernet/realtek/r8169_main.c
 index 71d5ea2929e1..94df408aa41a 100644
@@ -118,4 +118,4 @@ index 71d5ea2929e1..94df408aa41a 100644
 +	}
  	return false;
  }
- 
+

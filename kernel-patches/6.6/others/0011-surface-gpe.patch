@@ -18,7 +18,7 @@ index c219b840d491..69c4352e8406 100644
 @@ -41,6 +41,11 @@ static const struct property_entry lid_device_props_l4F[] = {
  	{},
  };
- 
+
 +static const struct property_entry lid_device_props_l52[] = {
 +	PROPERTY_ENTRY_U32("gpe", 0x52),
 +	{},

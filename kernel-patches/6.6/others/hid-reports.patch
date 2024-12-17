@@ -35,5 +35,5 @@ index 9993b692598fb..860e21ec6a492 100644
 -		n = 32;
 +		n = 256;
  	}
- 
+
  	return __extract(report, offset, n);

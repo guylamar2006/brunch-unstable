@@ -60,12 +60,12 @@ index b40c462b4af36c..c4e66e60d559d9 100644
  #endif
 +	struct pci_dev	*nvme_remap_dev;	/* AHCI Device if NVME remapped bus */
  };
- 
+
  extern int pci_routeirq;
 @@ -70,6 +71,11 @@ static inline bool is_vmd(struct pci_bus *bus)
  #define is_vmd(bus)		false
  #endif /* CONFIG_VMD */
- 
+
 +static inline bool is_nvme_remap(struct pci_bus *bus)
 +{
 +	return to_pci_sysdata(bus)->nvme_remap_dev != NULL;
@@ -81,7 +81,7 @@ index ddb798603201ef..7c20387d82029a 100644
 @@ -723,12 +723,15 @@ int pci_ext_cfg_avail(void)
  		return 0;
  }
- 
+
 -#if IS_ENABLED(CONFIG_VMD)
  struct pci_dev *pci_real_dma_dev(struct pci_dev *dev)
  {
@@ -92,7 +92,7 @@ index ddb798603201ef..7c20387d82029a 100644
 +
 +	if (is_nvme_remap(dev->bus))
 +		return to_pci_sysdata(dev->bus)->nvme_remap_dev;
- 
+
  	return dev;
  }
 -#endif
@@ -103,7 +103,7 @@ index 08745e7db8201f..07483490913d07 100644
 @@ -1524,7 +1524,7 @@ static irqreturn_t ahci_thunderx_irq_handler(int irq, void *dev_instance)
  }
  #endif
- 
+
 -static void ahci_remap_check(struct pci_dev *pdev, int bar,
 +static int ahci_remap_check(struct pci_dev *pdev, int bar,
  		struct ahci_host_priv *hpriv)
@@ -115,12 +115,12 @@ index 08745e7db8201f..07483490913d07 100644
  	    !(readl(hpriv->mmio + AHCI_VSCAP) & 1))
 -		return;
 +		return 0;
- 
+
  	cap = readq(hpriv->mmio + AHCI_REMAP_CAP);
  	for (i = 0; i < AHCI_MAX_REMAP; i++) {
 @@ -1552,18 +1552,11 @@ static void ahci_remap_check(struct pci_dev *pdev, int bar,
  	}
- 
+
  	if (!hpriv->remapped_nvme)
 -		return;
 -
@@ -129,7 +129,7 @@ index 08745e7db8201f..07483490913d07 100644
 -	dev_warn(&pdev->dev,
 -		 "Switch your BIOS from RAID to AHCI mode to use them.\n");
 +		return 0;
- 
+
 -	/*
 -	 * Don't rely on the msi-x capability in the remap case,
 -	 * share the legacy interrupt across ahci and remapped devices.
@@ -139,17 +139,17 @@ index 08745e7db8201f..07483490913d07 100644
 +	dev_info(&pdev->dev, "Device will be handled by intel-nvme-remap.\n");
 +	return -ENODEV;
  }
- 
+
  static int ahci_get_irq_vector(struct ata_host *host, int port)
 @@ -1783,7 +1776,9 @@ static int ahci_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  	hpriv->mmio = pcim_iomap_table(pdev)[ahci_pci_bar];
- 
+
  	/* detect remapped nvme devices */
 -	ahci_remap_check(pdev, ahci_pci_bar, hpriv);
 +	rc = ahci_remap_check(pdev, ahci_pci_bar, hpriv);
 +	if (rc)
 +		return rc;
- 
+
  	sysfs_add_file_to_group(&pdev->dev.kobj,
  				&dev_attr_remapped_nvme.attr,
 diff --git a/drivers/pci/controller/Makefile b/drivers/pci/controller/Makefile

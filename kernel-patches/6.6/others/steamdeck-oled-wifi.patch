@@ -90,7 +90,7 @@ index fc7c4564a715..6a23a749f5e6 100644
 +		.support_fw_mac_sequence = true,
 +	},
  };
- 
+
  static inline struct ath11k_pdev *ath11k_core_get_single_pdev(struct ath11k_base *ab)
 diff --git a/drivers/net/wireless/ath/ath11k/core.h b/drivers/net/wireless/ath/ath11k/core.h
 index b04447762483..44e1c7007abb 100644
@@ -102,7 +102,7 @@ index b04447762483..44e1c7007abb 100644
  	ATH11K_HW_IPQ5018_HW10,
 +	ATH11K_HW_QCA206X_HW21,
  };
- 
+
  enum ath11k_firmware_mode {
 diff --git a/drivers/net/wireless/ath/ath11k/mhi.c b/drivers/net/wireless/ath/ath11k/mhi.c
 index 3ac689f1def4..e5b9dc2cd4c6 100644
@@ -123,7 +123,7 @@ index 09e65c5e55c4..cf1bae60a8c9 100644
 @@ -28,6 +28,9 @@
  #define QCN9074_DEVICE_ID		0x1104
  #define WCN6855_DEVICE_ID		0x1103
- 
+
 +#define QCA206X_PCIC_SUB_VERSION 0x1910010 /* As far as I know, this is a magic number.
 +			                    * I got it from linux-neptune on the Steam Deck.*/
 +
@@ -138,9 +138,9 @@ index 09e65c5e55c4..cf1bae60a8c9 100644
  	const struct ath11k_pci_ops *pci_ops;
  	int ret;
 +	int ops_initialized = 0;
- 
+
  	ab = ath11k_core_alloc(&pdev->dev, sizeof(*ab_pci), ATH11K_BUS_PCI);
- 
+
 @@ -809,7 +814,30 @@ static int ath11k_pci_probe(struct pci_dev *pdev,
  				break;
  			case 0x10:
@@ -176,7 +176,7 @@ index 09e65c5e55c4..cf1bae60a8c9 100644
 @@ -832,10 +860,12 @@ static int ath11k_pci_probe(struct pci_dev *pdev,
  		goto err_pci_free_region;
  	}
- 
+
 -	ret = ath11k_pcic_register_pci_ops(ab, pci_ops);
 -	if (ret) {
 -		ath11k_err(ab, "failed to register PCI ops: %d\n", ret);
@@ -188,7 +188,7 @@ index 09e65c5e55c4..cf1bae60a8c9 100644
 +		    goto err_pci_free_region;
 +	    }
  	}
- 
+
  	ret = ath11k_pcic_init_msi_config(ab);
 diff --git a/drivers/net/wireless/ath/ath11k/pcic.c b/drivers/net/wireless/ath/ath11k/pcic.c
 index c63083633b37..289db01d75a7 100644
@@ -210,5 +210,5 @@ index c63083633b37..289db01d75a7 100644
 +		.hw_rev = ATH11K_HW_QCA206X_HW21,
 +	},
  };
- 
+
  int ath11k_pcic_init_msi_config(struct ath11k_base *ab)

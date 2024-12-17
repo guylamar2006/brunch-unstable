@@ -9,12 +9,12 @@ index 34b14f2611ba..65512494384b 100644
 +#include "../../codecs/cs35l41.h"
 +
  #include "acp-mach.h"
- 
+
  #define PCO_PLAT_CLK 48000000
 @@ -1243,6 +1245,78 @@ SND_SOC_DAILINK_DEF(nau8821,
  		    DAILINK_COMP_ARRAY(COMP_CODEC("i2c-NVTN2020:00",
  						  "nau8821-hifi")));
- 
+
 +static int acp_cs35l41_init(struct snd_soc_pcm_runtime *rtd)
 +{
 +	return 0;
@@ -100,7 +100,7 @@ index 34b14f2611ba..65512494384b 100644
  	DAILINK_COMP_ARRAY(COMP_CPU("acp-sof-dmic")));
  SND_SOC_DAILINK_DEF(pdm_dmic,
 @@ -1348,6 +1424,8 @@ int acp_sofdsp_dai_links_create(struct snd_soc_card *card)
- 
+
  	if (drv_data->hs_cpu_id)
  		num_links++;
 +	if (drv_data->bt_cpu_id)
@@ -157,7 +157,7 @@ index 34b14f2611ba..65512494384b 100644
 +		}
  		i++;
  	}
- 
+
 diff --git a/sound/soc/amd/acp/acp-mach.h b/sound/soc/amd/acp/acp-mach.h
 index cd681101bea7..1d38025307b5 100644
 --- a/sound/soc/amd/acp/acp-mach.h
@@ -169,7 +169,7 @@ index cd681101bea7..1d38025307b5 100644
 +	BT_BE_ID,
  	DMIC_BE_ID,
  };
- 
+
 @@ -45,6 +46,7 @@ enum codec_endpoints {
  	MAX98360A,
  	RT5682S,
@@ -215,26 +215,26 @@ index ba4ef290b634..2f070f90773a 100644
  	struct sof_dai_private_data *private = dai->private;
  	u32 size = sizeof(*config);
 +	int ret;
- 
+
  	/* handle master/slave and inverted clocks */
  	sof_dai_set_format(hw_config, config);
 @@ -1182,12 +1183,14 @@ static int sof_link_acp_bt_load(struct snd_soc_component *scomp, struct snd_sof_
  	memset(&config->acpbt, 0, sizeof(config->acpbt));
  	config->hdr.size = size;
- 
+
 -	config->acpbt.fsync_rate = le32_to_cpu(hw_config->fsync_rate);
 -	config->acpbt.tdm_slots = le32_to_cpu(hw_config->tdm_slots);
 +	ret = sof_update_ipc_object(scomp, &config->acpbt, SOF_ACPI2S_TOKENS, slink->tuples,
 +				    slink->num_tuples, size, slink->num_hw_configs);
 +	if (ret < 0)
 +		return ret;
- 
+
 -	dev_info(scomp->dev, "ACP_BT config ACP%d channel %d rate %d\n",
 +	dev_info(scomp->dev, "ACP_BT config ACP%d channel %d rate %d tdm_mode %d\n",
  		 config->dai_index, config->acpbt.tdm_slots,
 -		 config->acpbt.fsync_rate);
 +		 config->acpbt.fsync_rate, config->acpbt.tdm_mode);
- 
+
  	dai->number_configs = 1;
  	dai->current_config = 0;
 diff --git a/sound/soc/sof/topology.c b/sound/soc/sof/topology.c

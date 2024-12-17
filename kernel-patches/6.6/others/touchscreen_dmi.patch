@@ -3,7 +3,7 @@
 @@ -11,6 +11,54 @@
  #include <linux/input/touchscreen.h>
  #include <linux/module.h>
- 
+
 +static int custom;
 +module_param(custom, int, 0644);
 +MODULE_PARM_DESC(custom, "Override touchscreen settings");
@@ -94,13 +94,13 @@
 +			return true;
 +		}
 +	}
- 
+
  	error = device_property_read_u32(dev, property, &val);
  	if (error) {
 @@ -121,7 +204,7 @@
  	prop->max_x = input_abs_get_max(input, axis_x);
  	prop->max_y = input_abs_get_max(input, axis_y);
- 
+
 -	prop->invert_x =
 +	prop->invert_x = (custom && invert_x) ? true :
  		device_property_read_bool(dev, "touchscreen-inverted-x");
@@ -109,7 +109,7 @@
 @@ -129,7 +212,7 @@
  		absinfo->minimum = 0;
  	}
- 
+
 -	prop->invert_y =
 +	prop->invert_y = (custom && invert_y) ? true :
  		device_property_read_bool(dev, "touchscreen-inverted-y");
@@ -118,7 +118,7 @@
 @@ -137,7 +220,7 @@
  		absinfo->minimum = 0;
  	}
- 
+
 -	prop->swap_x_y =
 +	prop->swap_x_y = (custom && swap_x_y) ? true :
  		device_property_read_bool(dev, "touchscreen-swapped-x-y");
@@ -129,7 +129,7 @@
 @@ -543,6 +543,49 @@
  	.properties	= teclast_x98plus2_props,
  };
- 
+
 +static const struct property_entry teclast_tbook16p_props[] = {
 +	PROPERTY_ENTRY_U32("touchscreen-size-x", 1975),
 +	PROPERTY_ENTRY_U32("touchscreen-size-y", 1520),
