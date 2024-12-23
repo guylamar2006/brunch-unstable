@@ -35,7 +35,10 @@ index cf472e44c5ff..f90504acd6db 100644
 +	depends on MFD_STEAMDECK
 +	help
 +	  Say Y here to enable support of USB Type C cable detection extcon
-+	  support on Steam Deck devices
++	  support on Steam Deck devices using the Valve Steam Deck EC. This
++	  driver will also handle USB role switching. This driver can also be
++	  built as a module. If so, the module will be called extcon-steamdeck.
++	  Say M here to compile this driver as a module.
 +
 +
  endif
@@ -54,6 +57,12 @@ index 000000000000..74f190adc8ea
 --- /dev/null
 +++ b/drivers/extcon/extcon-steamdeck.c
 @@ -0,0 +1,180 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ * Steam Deck EC sensors driver
++ *
++ * Copyright (C) 2021-2022 Valve Corporation
++ */
 +
 +#include <linux/acpi.h>
 +#include <linux/platform_device.h>
@@ -173,7 +182,7 @@ index 000000000000..74f190adc8ea
 +
 +static int steamdeck_extcon_probe(struct platform_device *pdev)
 +{
-+  	struct device *dev = &pdev->dev;
++	struct device *dev = &pdev->dev;
 +	struct steamdeck_extcon *sd;
 +	acpi_status status;
 +	int ret;
@@ -295,6 +304,7 @@ index 000000000000..9d0a5471b181
 +steamdeck_hwmon_get(struct steamdeck_hwmon *sd, const char *method)
 +{
 +	unsigned long long val;
++
 +	if (ACPI_FAILURE(acpi_evaluate_integer(sd->adev->handle,
 +					       (char *)method, NULL, &val)))
 +		return -EIO;
@@ -580,8 +590,11 @@ index 3132439f99e0..f378ffb1239b 100644
 +	tristate "LED support for Steam Deck"
 +	depends on LEDS_CLASS && MFD_STEAMDECK
 +	help
-+	  This option enabled support for the status LED (next to the
-+	  power button) on Steam Deck
++	  This option enables support for the status LED (next to the
++	  power button) on Steam Deck devices, using the Valve Steam Deck EC
++	  firmware, which can be used to indicate various system states.
++	  This driver can also be built as a module. If so, the module will
++	  be called leds-steamdeck. Say M here to compile this driver as a module.
 +
  source "drivers/leds/blink/Kconfig"
  
@@ -685,7 +698,7 @@ index 000000000000..ada9fffc0a42
 +
 +static int steamdeck_leds_probe(struct platform_device *pdev)
 +{
-+  	struct device *dev = &pdev->dev;
++	struct device *dev = &pdev->dev;
 +	struct steamdeck_led *sd;
 +	int ret;
 +
@@ -742,7 +755,10 @@ index 68d71b4b55bd..55ba0b2bf59b 100644
 +	depends on X86_64 || COMPILE_TEST
 +	help
 +	  This driver registers various MFD cells that expose aspects
-+	  of Steam Deck specific ACPI functionality.
++	  of Steam Deck specific ACPI functionality, such as sensors,
++	  LEDs, and extcon. This driver can also be built as a module.
++	  If so, the module will be called steamdeck. Say M here to compile
++	  this driver as a module.
 +
 +	  Say N here, unless you are running on Steam Deck hardware.
 +
