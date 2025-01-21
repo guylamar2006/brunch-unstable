@@ -1,16 +1,17 @@
-diff -uN a/drivers/platform/x86/chromeos_acpi.c b/drivers/platform/x86/chromeos_acpi.c
---- a/drivers/platform/x86/chromeos_acpi.c	2019-11-18 05:36:44.000000000 +0100
-+++ b/drivers/platform/x86/chromeos_acpi.c	2020-01-10 18:11:10.220502081 +0100
-@@ -36,6 +36,7 @@
- #include <linux/nvram.h>
- #include <linux/platform_device.h>
- #include <linux/acpi.h>
+diff --git a/drivers/platform/chrome/chromeos_acpi.c b/drivers/platform/chrome/chromeos_acpi.c
+index e6e6dcfc74d1..e31ef62a2609 100644
+--- a/drivers/platform/chrome/chromeos_acpi.c
++++ b/drivers/platform/chrome/chromeos_acpi.c
+@@ -15,6 +15,7 @@
+ #include <linux/kernel.h>
+ #include <linux/list.h>
+ #include <linux/module.h>
 +#include <linux/crc32.h>
  
- #include "../chrome/chromeos.h"
+ #define ACPI_ATTR_NAME_LEN 4
  
-@@ -760,6 +764,44 @@
- 	.write = chromeos_vbc_nvram_write,
+@@ -250,6 +251,44 @@ static const struct attribute_group *chromeos_acpi_all_groups[] = {
+ 	NULL
  };
  
 +static char fakehwid[256] = "";
@@ -34,7 +35,7 @@ diff -uN a/drivers/platform/x86/chromeos_acpi.c b/drivers/platform/x86/chromeos_
 +	if (count > 230)
 +		return -EINVAL;
 +
-+       sscanf(buf, "%s", board);
++	sscanf(buf, "%s", board);
 +
 +	snprintf(serial, sizeof(serial), "%s %s", board, "B2BB2BB2BB2BB2BB");
 +
@@ -46,22 +47,21 @@ diff -uN a/drivers/platform/x86/chromeos_acpi.c b/drivers/platform/x86/chromeos_
 +
 +	snprintf(fakehwid, sizeof(fakehwid), "%s %s%s", board, "B2B-B2B-B2B-B2B-B2B-B", crc);
 +
-+       return count;
++	return count;
 +}
 +
 +static const DEVICE_ATTR(HWID, 0644, fakehwid_show, fakehwid_store);
 +
- static int __init chromeos_acpi_init(void)
+ static int chromeos_acpi_device_probe(struct platform_device *pdev)
  {
- 	int ret = 0;
-@@ -788,6 +830,10 @@
- 		return PTR_ERR(chromeos_acpi.p_dev);
- 	}
+ 	chromeos_acpi_gpio_groups = get_gpio_pkg_num(&pdev->dev);
+@@ -261,6 +300,9 @@ static int chromeos_acpi_device_probe(struct platform_device *pdev)
+ 	if (chromeos_acpi_gpio_groups > ARRAY_SIZE(chromeos_acpi_all_groups) - 2)
+ 		dev_warn(&pdev->dev, "Only %zu GPIO attr groups supported by the driver out of total %u.\n",
+ 			 ARRAY_SIZE(chromeos_acpi_all_groups) - 2, chromeos_acpi_gpio_groups);
++
++	device_create_file(&pdev->dev, &dev_attr_HWID);
++
+ 	return 0;
+ }
  
-+	device_create_file(&chromeos_acpi.p_dev->dev, &dev_attr_HWID);
-+
-+	return 0;
-+
- 	ret = acpi_bus_register_driver(&chromeos_acpi_driver);
- 	if (ret < 0) {
- 		printk(MY_ERR "failed to register driver (%d)\n", ret);
