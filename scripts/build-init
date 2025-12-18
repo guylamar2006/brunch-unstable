@@ -62,7 +62,7 @@ gcc minioverride.c -o ../base-pkg/usr/lib/brunch-base/minioverride.so -shared ||
 cd .. || { echo "Failed to make minioverride"; exit 1; }
 rm -rf ./minioverride || { echo "Failed to make minioverride"; exit 1; }
 
-git clone --depth=1 -b 10.2.1 https://github.com/fmtlib/fmt.git || { echo "Failed to make libfmt"; exit 1; }
+git clone --depth=1 -b 12.1.0 https://github.com/fmtlib/fmt.git || { echo "Failed to make libfmt"; exit 1; }
 mkdir ./fmt/build || { echo "Failed to make libfmt"; exit 1; }
 cd ./fmt/build || { echo "Failed to make libfmt"; exit 1; }
 cmake -DCMAKE_INSTALL_PREFIX:PATH=/home/chronos/fmt-pkg -DBUILD_SHARED_LIBS=TRUE .. || { echo "Failed to make libfmt"; exit 1; }
