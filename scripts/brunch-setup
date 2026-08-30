@@ -18,7 +18,7 @@ function singleselect {
         read -rsn2 key
         if [[ $key = [A ]]; then echo up;    fi;
         if [[ $key = [B ]]; then echo down;  fi;
-      fi 
+      fi
     }
 
     local options
@@ -67,7 +67,7 @@ function singleselect {
     cursor_to $lastrow
     printf "\n"
     cursor_blink_on
-    
+
     returned_values=${options[$active]}
 }
 
@@ -89,7 +89,7 @@ function multiselect {
         read -rsn2 key
         if [[ $key = [A ]]; then echo up;    fi;
         if [[ $key = [B ]]; then echo down;  fi;
-      fi 
+      fi
     }
     toggle_option()    {
       local arr_name=$1
@@ -154,7 +154,7 @@ function multiselect {
     cursor_to $lastrow
     printf "\n"
     cursor_blink_on
-    
+
     num=0
     test=""
         for option in "${options[@]}"; do
@@ -181,7 +181,7 @@ reset
 
 returned_values=""
 
-available_kernels="6.12;chromebook-6.12;6.6;chromebook-6.6;experimental-6.18"
+available_kernels="6.12;chromebook-6.12;6.6;chromebook-6.6;experimental-6.18;experimental-7.2"
 echo "Select your kernel (press ENTER to validate your choice)"
 singleselect "$available_kernels"
 selected_kernel="$returned_values"

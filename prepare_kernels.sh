@@ -36,7 +36,7 @@ download_and_patch_kernels()
 {
 for kernel in $kernels; do
 	case "$kernel" in
-		6.18)
+		6.18|7.2)
 			echo "Downloading latest mainline kernel source for kernel $kernel"
 			curl -L $(curl -s https://www.kernel.org/releases.json | sed 's@ @@g' | grep '^"source"' | grep linux-$kernel | cut -d '"' -f4) -o "./kernels/experimental-$kernel.tar.xz" || { echo "Kernel source download failed"; exit 1; }
 			mkdir "./kernels/experimental-$kernel"
@@ -86,6 +86,6 @@ rm -rf ./kernels
 mkdir ./kernels
 
 chromeos_version="R153"
-kernels="6.6 6.12 6.18"
+kernels="6.6 6.12 6.18 7.2"
 download_and_patch_kernels
 
