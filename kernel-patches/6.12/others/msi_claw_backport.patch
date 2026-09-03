@@ -1,7 +1,7 @@
-From 495c3e1b4f3f460fae1d3454cb463e409f7f2e73 Mon Sep 17 00:00:00 2001
+From 8bb520f8aab2f445d8e2161bf2af3938d0a96746 Mon Sep 17 00:00:00 2001
 From: "Derek J. Clark" <derekjohn.clark@gmail.com>
 Date: Mon, 20 Jul 2026 03:15:46 +0000
-Subject: [PATCH 1/4] HID: hid-msi: Add MSI Claw configuration driver
+Subject: [PATCH 1/5] HID: hid-msi: Add MSI Claw configuration driver
 
 Adds configuration HID driver for the MSI Claw series of handheld PC's.
 In this initial patch add the initial driver outline and attributes for
@@ -885,10 +885,10 @@ index 0000000000000..6687e4579faa1
 2.55.0
 
 
-From a95100a9f87f10f451a0963b908c3a75a17268ab Mon Sep 17 00:00:00 2001
+From ecc34c8085bfe70c24d3286d0217042d7a584520 Mon Sep 17 00:00:00 2001
 From: "Derek J. Clark" <derekjohn.clark@gmail.com>
 Date: Mon, 20 Jul 2026 03:15:47 +0000
-Subject: [PATCH 2/4] HID: hid-msi: Add M-key mapping attributes
+Subject: [PATCH 2/5] HID: hid-msi: Add M-key mapping attributes
 
 Adds attributes that allow for remapping the M-keys with up to 5 values
 when in macro mode. There are 2 mappable buttons on the rear of the
@@ -1468,10 +1468,10 @@ index 6687e4579faa1..023d63cee6b06 100644
 2.55.0
 
 
-From 277fbafb94e825ce826d9a7e10fbe3ab9b208874 Mon Sep 17 00:00:00 2001
+From 3c28bacf8bb25db85cf7e844ea4fb1741c974279 Mon Sep 17 00:00:00 2001
 From: "Derek J. Clark" <derekjohn.clark@gmail.com>
 Date: Mon, 20 Jul 2026 03:15:48 +0000
-Subject: [PATCH 3/4] HID: hid-msi: Add RGB control interface
+Subject: [PATCH 3/5] HID: hid-msi: Add RGB control interface
 
 Adds RGB control interface for MSI Claw devices. The MSI Claw uses a
 fairly unique RGB interface. It has 9 total zones (4 per joystick ring
@@ -2354,10 +2354,10 @@ index 023d63cee6b06..5cb85fc2f0534 100644
 2.55.0
 
 
-From ef6b10427dc0bd7800ea05d01ddef470cb98fcfe Mon Sep 17 00:00:00 2001
+From e10f5228d1a810f2be27a2116bf16afb868d0e76 Mon Sep 17 00:00:00 2001
 From: "Derek J. Clark" <derekjohn.clark@gmail.com>
 Date: Mon, 20 Jul 2026 03:15:49 +0000
-Subject: [PATCH 4/4] HID: hid-msi: Add Rumble Intensity Attributes
+Subject: [PATCH 4/5] HID: hid-msi: Add Rumble Intensity Attributes
 
 Adds intensity adjustment for the left and right rumble motors.
 
@@ -2669,6 +2669,103 @@ index 5cb85fc2f0534..3225d3bf61254 100644
  	init_completion(&drvdata->orphan_ack_complete);
  	init_completion(&drvdata->send_cmd_complete);
  	INIT_DELAYED_WORK(&drvdata->cfg_resume, &cfg_resume_fn);
+-- 
+2.55.0
+
+
+From 31c6349370466af099d3411406dd6d971971f602 Mon Sep 17 00:00:00 2001
+From: Guy Chronister <guychronister@outlook.com>
+Date: Thu, 3 Sep 2026 23:11:18 +0000
+Subject: [PATCH 5/5] Backport functions to 6.12
+
+---
+ drivers/hid/hid-msi.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/hid/hid-msi.c b/drivers/hid/hid-msi.c
+index 3225d3bf61254..2f831164cc47f 100644
+--- a/drivers/hid/hid-msi.c
++++ b/drivers/hid/hid-msi.c
+@@ -293,7 +293,7 @@ struct claw_profile_report {
+ } __packed;
+ 
+ struct claw_mkey_report {
+-	struct claw_profile_report;
++	struct claw_profile_report profile;
+ 	u8 padding_0;
+ 	u8 padding_1;
+ 	u8 padding_2;
+@@ -311,7 +311,7 @@ struct rgb_frame {
+ };
+ 
+ struct claw_rgb_report {
+-	struct claw_profile_report;
++	struct claw_profile_report report;
+ 	u8 frame_bytes;
+ 	u8 padding;
+ 	u8 frame_count;
+@@ -322,7 +322,7 @@ struct claw_rgb_report {
+ } __packed;
+ 
+ struct claw_rumble_report {
+-	struct claw_profile_report;
++	struct claw_profile_report report;
+ 	u8 padding;
+ 	u8 intensity;
+ } __packed;
+@@ -422,7 +422,7 @@ static int claw_profile_event(struct claw_drvdata *drvdata, struct claw_command_
+ 	case CLAW_M2_PENDING:
+ 		key = (profile == CLAW_M1_PENDING) ? CLAW_KEY_M1 : CLAW_KEY_M2;
+ 		mkeys = (struct claw_mkey_report *)cmd_rep->data;
+-		if (be16_to_cpu(mkeys->read_addr) != drvdata->bmap_addr[key])
++		if (be16_to_cpu(mkeys->profile.read_addr) != drvdata->bmap_addr[key])
+ 			return -EAGAIN;
+ 		codes = (profile == CLAW_M1_PENDING) ? drvdata->m1_codes : drvdata->m2_codes;
+ 		for (i = 0; i < CLAW_KEYS_MAX; i++)
+@@ -431,7 +431,7 @@ static int claw_profile_event(struct claw_drvdata *drvdata, struct claw_command_
+ 	case CLAW_RGB_PENDING:
+ 		frame = (struct claw_rgb_report *)cmd_rep->data;
+ 		rgb_addr = drvdata->rgb_addr;
+-		read_addr = be16_to_cpu(frame->read_addr);
++		read_addr = be16_to_cpu(frame->profile.read_addr);
+ 
+ 		if (read_addr < drvdata->rgb_addr)
+ 			return -EAGAIN;
+@@ -462,14 +462,14 @@ static int claw_profile_event(struct claw_drvdata *drvdata, struct claw_command_
+ 		break;
+ 	case CLAW_RUMBLE_LEFT_PENDING:
+ 		rumble = (struct claw_rumble_report *)cmd_rep->data;
+-		if (be16_to_cpu(rumble->read_addr) != rumble_addr[0])
++		if (be16_to_cpu(rumble->profile.read_addr) != rumble_addr[0])
+ 			return -EAGAIN;
+ 		scoped_guard(spinlock_irqsave, &drvdata->rumble_lock)
+ 			drvdata->rumble_intensity_left = rumble->intensity;
+ 		break;
+ 	case CLAW_RUMBLE_RIGHT_PENDING:
+ 		rumble = (struct claw_rumble_report *)cmd_rep->data;
+-		if (be16_to_cpu(rumble->read_addr) != rumble_addr[1])
++		if (be16_to_cpu(rumble->profile.read_addr) != rumble_addr[1])
+ 			return -EAGAIN;
+ 		scoped_guard(spinlock_irqsave, &drvdata->rumble_lock)
+ 			drvdata->rumble_intensity_right = rumble->intensity;
+@@ -885,7 +885,7 @@ static int claw_mkey_store(struct device *dev, const char *buf, u8 mkey)
+ 	struct claw_drvdata *drvdata = hid_get_drvdata(hdev);
+ 	struct claw_mkey_report report = { {0x01, cpu_to_be16(drvdata->bmap_addr[mkey])},
+ 				   0x07, 0x04, 0x00, {0xff, 0xff, 0xff, 0xff, 0xff} };
+-	char **raw_keys __free(argv_free) = NULL;
++	char **raw_keys __free(kfree) = NULL;
+ 	int ret, key_count, i;
+ 
+ 	scoped_guard(spinlock_irqsave, &drvdata->registration_lock) {
+@@ -1280,7 +1280,7 @@ static int claw_write_rgb_state(struct claw_drvdata *drvdata)
+ 			report.zone_data = drvdata->rgb_frames[f];
+ 
+ 		/* Set the MCU address to write the frame data to */
+-		report.read_addr = cpu_to_be16(write_addr);
++		report.profile.read_addr = cpu_to_be16(write_addr);
+ 
+ 		/* Serialize the rgb_report and write it to MCU */
+ 		ret = claw_hw_output_report(drvdata->hdev, CLAW_COMMAND_TYPE_WRITE_PROFILE_DATA,
 -- 
 2.55.0
 
