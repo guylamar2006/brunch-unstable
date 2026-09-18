@@ -91,7 +91,7 @@ jobs:
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: true
+          preinstalled-runtimes: true
       - name: Display disk space
         run: |
           echo "Free space:"
@@ -139,7 +139,7 @@ jobs:
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: true
+          preinstalled-runtimes: true
       - name: Display disk space
         run: |
           echo "Free space:"
